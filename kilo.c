@@ -24,9 +24,9 @@ void enableRawMode(void){
     
     // Modify the struct to turn on raw mode
     struct termios raw = orig_termios;
-    raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
     raw.c_oflag &= ~(OPOST);
-    raw.c_iflag &= ~(IXON);
+    raw.c_iflag &= ~(ICRNL | IXON);
 
     // Set the terminal attributes
     if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
