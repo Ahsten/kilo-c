@@ -4,12 +4,36 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 
 struct termios orig_termios;
+struct winsize w;
 
 void die(const char *s){
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1B[H", 3);
+    write(STDIN_FILENO,"\x1B[?1049l", 8);
+
     perror(s);
     exit(1);
+}
+
+void drawTildes(void){
+    for(int x = 0; x <= w.ws_row; x++){
+        if(x == w.ws_row){
+            printf("~");
+        } else {
+            printf("~\r\n");
+        }
+    }
+}
+
+void clearScreen(void){
+    write(STDIN_FILENO,"\x1B[?1049h", 8);
+    write(STDOUT_FILENO, "\x1B[H", 3);
+    write(STDOUT_FILENO, "\x1B[2J", 4);
+    drawTildes();
+    write(STDOUT_FILENO, "\x1B[H", 3);
 }
 
 void disableRawMode(void) {
@@ -20,8 +44,9 @@ void disableRawMode(void) {
 void enableRawMode(void){
     // Get the terminal attributes
     if(tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
+    ioctl(STDIN_FILENO, TIOCGWINSZ, &w);
     atexit(disableRawMode);
-    
+   
     // Modify the struct to turn on raw mode
     struct termios raw = orig_termios;
     raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
@@ -35,6 +60,7 @@ void enableRawMode(void){
 
 int main(void){
     enableRawMode();
+    clearScreen();
 
     while(1){
         char c = '\0';
@@ -45,7 +71,10 @@ int main(void){
             printf("%d ('%c')\r\n", c, c);
         }
 
-        if(c == 'q') break;
+        if(c == 'q'){
+            write(STDIN_FILENO,"\x1B[?1049l", 8);
+            break;
+        }
     }
 
     return 0;
