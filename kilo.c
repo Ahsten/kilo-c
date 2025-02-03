@@ -6,8 +6,13 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+struct editorConfig {
+    int rows;
+    int columns;
 struct termios orig_termios;
-struct winsize w;
+};
+
+struct editorConfig config;
 
 void die(const char *s){
     write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -19,13 +24,26 @@ void die(const char *s){
 }
 
 void drawTildes(void){
-    for(int x = 0; x <= w.ws_row; x++){
-        if(x == w.ws_row){
+    for(int x = 0; x <= config.rows; x++){
+        if(x == config.rows){
             printf("~");
         } else {
             printf("~\r\n");
         }
     }
+}
+
+int getWindowSize(int *rows, int *columns){
+    struct winsize window;
+
+    if(ioctl(STDIN_FILENO, TIOCGWINSZ, &window) == -1 || window.ws_col == 0){
+        return -1;
+    } else {
+        *rows = window.ws_col;
+        *columns = window.ws_row;
+        return 0;
+    }
+
 }
 
 void clearScreen(void){
@@ -37,18 +55,17 @@ void clearScreen(void){
 }
 
 void disableRawMode(void) {
-    if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+    if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &config.orig_termios) == -1)
         die("tcsetattr");
 }
 
 void enableRawMode(void){
     // Get the terminal attributes
-    if(tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
-    ioctl(STDIN_FILENO, TIOCGWINSZ, &w);
+    if(tcgetattr(STDIN_FILENO, &config.orig_termios) == -1) die("tcgetattr");
     atexit(disableRawMode);
    
     // Modify the struct to turn on raw mode
-    struct termios raw = orig_termios;
+    struct termios raw = config.orig_termios;
     raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
     raw.c_oflag &= ~(OPOST);
     raw.c_iflag &= ~(ICRNL | IXON | INPCK | ISTRIP | BRKINT);
@@ -58,8 +75,13 @@ void enableRawMode(void){
     if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
+void initalizeEditor(){
+    if(getWindowSize(&config.rows, &config.columns) == -1) die("getWindowSize");
+}
+
 int main(void){
     enableRawMode();
+    initalizeEditor();
     clearScreen();
 
     while(1){
