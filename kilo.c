@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 struct editorConfig {
     int rows;
@@ -17,7 +18,6 @@ struct editorConfig config;
 void die(const char *s){
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1B[H", 3);
-    write(STDIN_FILENO,"\x1B[?1049l", 8);
 
     perror(s);
     exit(1);
@@ -25,11 +25,7 @@ void die(const char *s){
 
 void drawTildes(void){
     for(int x = 0; x <= config.rows; x++){
-        if(x == config.rows){
-            printf("~");
-        } else {
-            printf("~\r\n");
-        }
+        write(STDOUT_FILENO, "~\r\n", 3);
     }
 }
 
@@ -47,9 +43,8 @@ int getWindowSize(int *rows, int *columns){
 }
 
 void clearScreen(void){
-    write(STDIN_FILENO,"\x1B[?1049h", 8);
-    write(STDOUT_FILENO, "\x1B[H", 3);
     write(STDOUT_FILENO, "\x1B[2J", 4);
+    write(STDOUT_FILENO, "\x1B[H", 3);
     drawTildes();
     write(STDOUT_FILENO, "\x1B[H", 3);
 }
@@ -75,14 +70,23 @@ void enableRawMode(void){
     if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-void initalizeEditor(){
+void initalizeEditor(void){
     if(getWindowSize(&config.rows, &config.columns) == -1) die("getWindowSize");
+}
+
+void sig_handler(int sig){
+    if(SIGWINCH == sig){
+        initalizeEditor();
+        clearScreen();
+    }
 }
 
 int main(void){
     enableRawMode();
     initalizeEditor();
     clearScreen();
+    
+    signal(SIGWINCH, sig_handler);
 
     while(1){
         char c = '\0';
@@ -94,7 +98,8 @@ int main(void){
         }
 
         if(c == 'q'){
-            write(STDIN_FILENO,"\x1B[?1049l", 8);
+            write(STDOUT_FILENO, "\x1B[2J", 4);
+            write(STDOUT_FILENO, "\x1B[H", 3);
             break;
         }
     }
