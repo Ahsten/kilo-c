@@ -65,6 +65,8 @@ void enableRawMode(void){
     raw.c_oflag &= ~(OPOST);
     raw.c_iflag &= ~(ICRNL | IXON | INPCK | ISTRIP | BRKINT);
     raw.c_cflag &= ~(CS8);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 1;
 
     // Set the terminal attributes
     if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
